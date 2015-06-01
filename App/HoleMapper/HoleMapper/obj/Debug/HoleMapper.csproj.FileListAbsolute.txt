@@ -1,0 +1,14 @@
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\HoleMapper.exe.config
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\HoleMapper.exe
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\HoleMapper.pdb
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\obj\Debug\HoleMapper.csprojResolveAssemblyReference.cache
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\obj\Debug\HoleMapper.Form1.resources
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\obj\Debug\HoleMapper.Properties.Resources.resources
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\obj\Debug\HoleMapper.csproj.GenerateResource.Cache
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\obj\Debug\HoleMapper.exe
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\obj\Debug\HoleMapper.pdb
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\GoogleMapsApi.dll
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\GoogleMapsApi.pdb
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\GoogleMapsApi.xml
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\Newtonsoft.Json.dll
+C:\work\GolfGPS\App\HoleMapper\HoleMapper\bin\Debug\Newtonsoft.Json.xml

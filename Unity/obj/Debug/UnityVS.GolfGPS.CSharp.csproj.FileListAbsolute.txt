@@ -11,3 +11,12 @@ C:\work\GolfGPS\Temp\UnityVS_bin\Debug\UnityEditor.iOS.Extensions.Xcode.xml
 C:\work\GolfGPS\obj\Debug\UnityVS.GolfGPS.CSharp.csprojResolveAssemblyReference.cache
 C:\work\GolfGPS\obj\Debug\Assembly-CSharp.dll
 C:\work\GolfGPS\obj\Debug\Assembly-CSharp.pdb
+C:\work\GolfGPS\Unity\Temp\UnityVS_bin\Debug\Assembly-CSharp.dll
+C:\work\GolfGPS\Unity\Temp\UnityVS_bin\Debug\Assembly-CSharp.pdb
+C:\work\GolfGPS\Unity\Temp\UnityVS_bin\Debug\UnityEditor.dll
+C:\work\GolfGPS\Unity\Temp\UnityVS_bin\Debug\UnityEditor.iOS.Extensions.Xcode.dll
+C:\work\GolfGPS\Unity\Temp\UnityVS_bin\Debug\UnityEngine.dll
+C:\work\GolfGPS\Unity\Temp\UnityVS_bin\Debug\UnityEngine.UI.dll
+C:\work\GolfGPS\Unity\obj\Debug\UnityVS.GolfGPS.CSharp.csprojResolveAssemblyReference.cache
+C:\work\GolfGPS\Unity\obj\Debug\Assembly-CSharp.dll
+C:\work\GolfGPS\Unity\obj\Debug\Assembly-CSharp.pdb

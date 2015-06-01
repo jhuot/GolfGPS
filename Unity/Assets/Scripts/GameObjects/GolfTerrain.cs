@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using UnityEngine;
 
@@ -15,8 +17,27 @@ namespace GolfGPS.Scripts
         {
             _ter = GetComponent<Terrain>();
             _td = _ter.terrainData;
-            _td.size = new Vector3(100, 1, 400);
+            _td.size = new Vector3(400, 104.580459594727f, 100);
         }
-        
+
+        public void Start()
+        {
+            _td.SetHeights(0, 0, GetHeightsFromFile());
+        }
+
+        public float[,] GetHeightsFromFile()
+        {
+            string mapBinData = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\course_unity_binary.dat";
+            if (File.Exists(mapBinData))
+            {
+                BinaryFormatter bf = new BinaryFormatter();
+                FileStream fs = File.Open(mapBinData, FileMode.Open);
+                float[,] heights = (float[,])bf.Deserialize(fs);
+                fs.Close();
+                return heights;
+            }
+            return new float[400, 100];
+        }
+
     }
 }
