@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using GoogleMapsApi;
@@ -55,8 +56,8 @@ namespace HoleMapper
             //Build Float Array
             if (SimpleGPSs.Where(s => s.Elevation > 0).Count() > 0)
             {
-                var min = SimpleGPSs.Where(s => s.Elevation > 0).Min(s => Math.Round(s.Elevation, 4));
-                var max = SimpleGPSs.Where(s => s.Elevation > 0).Max(s => Math.Round(s.Elevation, 4));
+                var min = SimpleGPSs.Where(s => s.Elevation > 0).Min(s => s.Elevation);
+                var max = SimpleGPSs.Where(s => s.Elevation > 0).Max(s => s.Elevation);
 
                 Console.WriteLine("New Range: " + (max - min).ToString());
 
@@ -69,15 +70,15 @@ namespace HoleMapper
                 {
                     try
                     {
-                        var zeroed = Math.Round(s.Elevation, 4) - min;
-                        var elevationRatio = zeroed / (max - min);
-                        unityMaps[s.X, s.Y] = Convert.ToSingle(Math.Round(elevationRatio, 4));
+                        var zeroed = Math.Round(s.Elevation - min);
+                        var elevationRatio = zeroed / Math.Round(max - min);
+                        unityMaps[s.X, s.Y] = Convert.ToSingle(Math.Round(elevationRatio, 3));
                         //Console.WriteLine("({0} - {1})/{2} = {3}", Math.Round(s.Elevation, 4), min, max - min, unityMaps[s.X, s.Y]);
                     }
                     catch (Exception ex)
                     {
                         //unityMaps[s.X, s.Y] = 0;
-                        Console.WriteLine(String.Format("Error Setting 2D Array ({0},{1}) = {2}", s.X, s.Y, Math.Round(s.Elevation, 4) - min));
+                        Console.WriteLine(String.Format("Error Setting 2D Array ({0},{1}) = {2}", s.X, s.Y, s.Elevation - min));
                         //Console.WriteLine(ex.Message);
                     }
                     return true;
@@ -94,17 +95,17 @@ namespace HoleMapper
                 }
 
                 // Create Image
-                if (SimpleGPSs.Where(s => s.Elevation < 0).Count() <= 0)
-                {
+                //if (SimpleGPSs.Where(s => s.Elevation < 0).Count() <= 0)
+                //{
                     Bitmap bmp = new Bitmap(w, h);
-                    var i = 0;
+
                     Color g = Color.Red;
                     for (var c = 0; c < w; c++)
                     {
                         for (var r = 0; r < h; r++)
                         {
-                            i += 1;
-                            int rgb = Convert.ToInt32(unityMaps[c, r] * 255);
+                            var ratio = (unityMaps[c, r] > 0) ? unityMaps[c, r] : 0;
+                            int rgb = Convert.ToInt32(ratio * 255);
                             g = Color.FromArgb(255, rgb, rgb, rgb);
                             bmp.SetPixel(c, r, g);
                             //Console.WriteLine("{0},{1} - {2}", c, r, g);
@@ -114,7 +115,7 @@ namespace HoleMapper
                     //bmp.SetPixel(0, 0, Color.Red);
                     bmp.Save(datPath + @"\test.png");
                     Console.WriteLine("Image Generated");
-                }
+                //}
             }
         }
 
@@ -148,8 +149,7 @@ namespace HoleMapper
                                 Longitude = pLng,
                                 Elevation = -1,
                                 X = col,
-                                Y = row,
-                                Z = -1
+                                Y = row
                             });
                         }
                         else {
@@ -224,12 +224,11 @@ namespace HoleMapper
 
             return new SimpleGPS
             {
-                Latitude = Math.Round(RadiansToDegrees(endLatRads),6),
-                Longitude = Math.Round(RadiansToDegrees(endLonRads),6),
+                Latitude = RadiansToDegrees(endLatRads),
+                Longitude = RadiansToDegrees(endLonRads),
                 Elevation = -1,
                 X = col,
-                Y = row,
-                Z = -1
+                Y = row
             };
         }
 
@@ -272,11 +271,13 @@ namespace HoleMapper
             }
         }
 
+        private Thread UpdateElevationThread = null;
         private void button2_Click(object sender, EventArgs e)
         {
             if (SimpleGPSs.Where(s => s.Elevation == -1).Count() > 0)
             {
-                UpdateElevations();
+                this.UpdateElevationThread = new Thread(new ThreadStart(this.UpdateElevations));
+                this.UpdateElevationThread.Start();
             }
             else
             {
@@ -286,39 +287,56 @@ namespace HoleMapper
 
         public void UpdateElevations()
         {
-            ElevationRequest eReq = new ElevationRequest()
+            if (!chkStopUpdate.Checked)
             {
-                Locations = SimpleGPSs.Where(s => s.Elevation == -1).Take(50).Select(s => s.ToLocation()).ToList<Location>()
-            };
-
-            var result = GoogleMaps.Elevation.Query(eReq);
-
-            if (result.Status == GoogleMapsApi.Entities.Elevation.Response.Status.OVER_QUERY_LIMIT)
-            {
-                Console.WriteLine("Elevation Request Query Limit Exceeded");
-                this.Close();
-            }
-            else
-            {
-                Populate(result.Results);
-                SaveFile();
-                Console.WriteLine(SimpleGPSs.Where(s => s.Elevation == -1).Count() + " OF " + SimpleGPSs.Count() + " have been mapped.");
-
-                if (SimpleGPSs.Where(s => s.Elevation == -1).Count() > 0)
+                int TakeAmt = 80;
+                ElevationRequest eReq = new ElevationRequest()
                 {
-                    UpdateElevations();
-                }else
+                    Locations = SimpleGPSs.Where(s => s.Elevation == -1).Take(TakeAmt).Select(s => s.ToLocation()).ToList<Location>()
+                };
+
+                var result = GoogleMaps.Elevation.Query(eReq);
+
+                if (result.Status == GoogleMapsApi.Entities.Elevation.Response.Status.OVER_QUERY_LIMIT)
                 {
+                    Console.WriteLine("Elevation Request Query Limit Exceeded");
                     this.Close();
                 }
+                else
+                {
+                    Populate(result.Results);
+                   
+                    
+                    if (SimpleGPSs.Where(s => s.Elevation == -1).Count() > 0)
+                    {
+                        Console.WriteLine(SimpleGPSs.Where(s => s.Elevation == -1).Count() + " OF " + SimpleGPSs.Count() + " have been mapped.");
+                        UpdateElevations();
+                    }
+                    else
+                    {
+                        this.ManageStopFlag("Update Completed...");
+                    }
+                }
+            }else
+            {
+                this.ManageStopFlag("User Stopped Updating - Begin Save()...");
             }
+        }
+
+        private void ManageStopFlag(string msg)
+        {
+                //this.chkStopUpdate.Checked = false;
+                Console.WriteLine(msg);
+                SaveFile();
+                Console.WriteLine("Stopped Updating - Save Completed...");
+            
         }
 
         private void Populate(IEnumerable<Result> results)
         {
             results.All(r =>
             {
-                SimpleGPSs.Where(s => s.ToLocation().LocationString == r.Location.LocationString).FirstOrDefault().Elevation = Math.Round(r.Elevation,4);
+                SimpleGPSs.Where(s => s.ToLocation().LocationString == r.Location.LocationString).FirstOrDefault().Elevation = r.Elevation;
                 return true;
             });
 
@@ -331,14 +349,19 @@ namespace HoleMapper
 
     public class SimpleGPS
     {
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
-        public double Elevation { get; set; }
+
+        private double _lat;
+        private double _lng;
+        private double _ele;
+
+
+        public double Latitude { get { return _lat; } set { _lat = Math.Round(value, 6); } }
+        public double Longitude { get { return _lng; } set { _lng = Math.Round(value, 6); } }
+        public double Elevation { get { return _ele; } set { _ele = Math.Round(value, 3); } }
 
 
         public int X { get; set; } 
         public int Y { get; set; }
-        public int Z { get; set; }
 
         public string ToLatLong()
         {
