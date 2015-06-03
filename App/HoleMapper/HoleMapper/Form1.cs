@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -53,6 +54,31 @@ namespace HoleMapper
                 outFile.Write(JsonConvert.SerializeObject(SimpleGPSs.OrderBy(s => s.Y).OrderBy(s => s.X)));
             }
 
+            using (StreamWriter outFile = new StreamWriter(datPath + @"\course.txt"))
+            {
+                SimpleGPSs.OrderBy(s => s.Y).OrderBy(s => s.X).All(s =>
+                {
+                    outFile.WriteLine("{0},{1}", s.Latitude, s.Longitude);
+                    return true;
+                });
+
+                outFile.WriteLine(" ==== FULL ==== ");
+
+                SimpleGPSs.OrderBy(s => s.X).OrderBy(s => s.Y).All(s =>
+                {
+                    outFile.WriteLine("{0},{1}  - ({2},{3})", s.Latitude, s.Longitude, s.X, s.Y);
+                    return true;
+                });
+
+                outFile.WriteLine(" ==== Coords ==== ");
+
+                SimpleGPSs.OrderBy(s => s.X).OrderBy(s => s.Y).All(s =>
+                {
+                    outFile.WriteLine("({0},{1})", s.X, s.Y);
+                    return true;
+                });
+            }
+
             //Build Float Array
             if (SimpleGPSs.Where(s => s.Elevation > 0).Count() > 0)
             {
@@ -66,13 +92,15 @@ namespace HoleMapper
                 float[,] unityMaps = new float[w, h];
                 float[,] heightMap = new float[w, h];
 
-                SimpleGPSs.All(s =>
+                SimpleGPSs.OrderBy(s => s.X).OrderBy(s => s.Y).All(s =>
                 {
                     try
                     {
-                        var zeroed = Math.Round(s.Elevation - min);
-                        var elevationRatio = zeroed / Math.Round(max - min);
-                        unityMaps[s.X, s.Y] = Convert.ToSingle(Math.Round(elevationRatio, 3));
+                        var zeroed = s.Elevation - min;
+                        var elevationRatio = zeroed / (max - min);
+                        //var elevationRatio = s.Elevation / max;
+                        unityMaps[s.X, s.Y] = Convert.ToSingle(elevationRatio);
+                        //Console.WriteLine("{0},{1}  - ({2},{3})", s.Latitude, s.Longitude, s.X, s.Y);
                         //Console.WriteLine("({0} - {1})/{2} = {3}", Math.Round(s.Elevation, 4), min, max - min, unityMaps[s.X, s.Y]);
                     }
                     catch (Exception ex)
@@ -94,29 +122,91 @@ namespace HoleMapper
                     outFile.Write(JsonConvert.SerializeObject(unityMaps));
                 }
 
-                // Create Image
-                //if (SimpleGPSs.Where(s => s.Elevation < 0).Count() <= 0)
-                //{
-                    Bitmap bmp = new Bitmap(w, h);
 
-                    Color g = Color.Red;
-                    for (var c = 0; c < w; c++)
-                    {
-                        for (var r = 0; r < h; r++)
-                        {
-                            var ratio = (unityMaps[c, r] > 0) ? unityMaps[c, r] : 0;
-                            int rgb = Convert.ToInt32(ratio * 255);
-                            g = Color.FromArgb(255, rgb, rgb, rgb);
-                            bmp.SetPixel(c, r, g);
-                            //Console.WriteLine("{0},{1} - {2}", c, r, g);
-                        }
-                    }
+                Bitmap bmp = new Bitmap(w, h);
+                
 
-                    //bmp.SetPixel(0, 0, Color.Red);
-                    bmp.Save(datPath + @"\test.png");
-                    Console.WriteLine("Image Generated");
-                //}
+                SimpleGPSs.OrderBy(s => s.X).OrderBy(s => s.Y).All(s =>
+                {
+                    var ratio = (unityMaps[s.X, s.Y] > 0) ? unityMaps[s.X, s.Y] : 0;
+                    int rgb = Convert.ToInt32(ratio * 255);
+                    Color g = Color.FromArgb(255, rgb, rgb, rgb);
+                    bmp.SetPixel(s.X, s.Y, g);
+                    return true;
+                });
+
+
+                //bmp.SetPixel(0, 0, Color.Red);
+                bmp.Save(datPath + @"\test.png");
+                Console.WriteLine("Image Generated");
+                ByteArrayToFile(datPath + @"\course_unity_terrain.raw", ConvertBitmap(bmp));
+                Console.WriteLine("Raw Generated");
             }
+        }
+
+        public bool ByteArrayToFile(string _FileName, byte[] _ByteArray)
+        {
+            try
+            {
+                // Open file for reading
+                System.IO.FileStream _FileStream =
+                   new System.IO.FileStream(_FileName, System.IO.FileMode.Create,
+                                            System.IO.FileAccess.Write);
+                // Writes a block of bytes to this stream using data from
+                // a byte array.
+                _FileStream.Write(_ByteArray, 0, _ByteArray.Length);
+
+                // close file stream
+                _FileStream.Close();
+
+                return true;
+            }
+            catch (Exception _Exception)
+            {
+                // Error
+                Console.WriteLine("Exception caught in process: {0}",
+                                  _Exception.ToString());
+            }
+
+            // error occured, return false
+            return false;
+        }
+
+        /// <summary>
+        /// Convert a bitmap to a byte array
+        /// </summary>
+        /// <param name="bitmap">image to convert</param>
+        /// <returns>image as bytes</returns>
+        private byte[] ConvertBitmap(Bitmap bitmap)
+        {
+            //Code excerpted from Microsoft Robotics Studio v1.5
+            BitmapData raw = null;  //used to get attributes of the image
+            byte[] rawImage = null; //the image as a byte[]
+
+            try
+            {
+                //Freeze the image in memory
+                raw = bitmap.LockBits(
+                    new Rectangle(0, 0, (int)bitmap.Width, (int)bitmap.Height),
+                    ImageLockMode.ReadOnly,
+                    PixelFormat.Format24bppRgb
+                );
+
+                int size = raw.Height * raw.Stride;
+                rawImage = new byte[size];
+
+                //Copy the image into the byte[]
+                System.Runtime.InteropServices.Marshal.Copy(raw.Scan0, rawImage, 0, size);
+            }
+            finally
+            {
+                if (raw != null)
+                {
+                    //Unfreeze the memory for the image
+                    bitmap.UnlockBits(raw);
+                }
+            }
+            return rawImage;
         }
 
 
@@ -131,53 +221,69 @@ namespace HoleMapper
                 var row = 0;
                 var col = 0;
 
-               
-
-                double pLat = Math.Round(double.Parse(txtLat.Text), 6);
-                double pLng = Math.Round(double.Parse(txtLong.Text), 6);
-                int cBrng = 90;
-                for (col = 0; col < width; col++)
+                //Create Matrix
+                for(var c = 0; c < width; c++)
                 {
-                    cBrng = 90;
-                    for (row = 0; row < height; row++)
+                    for (var r = 0; r < height; r++)
                     {
-                        if (row == 0 && col == 0)
+                        gps.Add(new SimpleGPS
                         {
-                            gps.Add(new SimpleGPS
-                            {
-                                Latitude = pLat,
-                                Longitude = pLng,
-                                Elevation = -1,
-                                X = col,
-                                Y = row
-                            });
-                        }
-                        else {
-                            SimpleGPS lastGPS = getNext(pLat, pLng, col, row, cBrng, 1);
-                            pLat = lastGPS.Latitude;
-                            pLng = lastGPS.Longitude;
-                            gps.Add(lastGPS);
-                        }
-                        cBrng = 0;
+                            Latitude = 0,
+                            Longitude = 0,
+                            Elevation = -1,
+                            X = c,
+                            Y = r
+                        });
                     }
                 }
 
                
+                double pLat = double.Parse(txtLat.Text);
+                double pLng = double.Parse(txtLong.Text);
+
+                //Fill all primary Coloumns
+                gps.Where(g => g.Y == 0).OrderBy(g => g.X).All(g =>
+                {
+                    if(g.X == 0)
+                    {
+                        g.Latitude = pLat;
+                        g.Longitude = pLng;
+                    }else
+                    {
+                        var tmpGPS = getNext(pLat, pLng, g.X, g.Y, 90, 1);
+                        g.Latitude = pLat;
+                        pLng = g.Longitude = tmpGPS.Longitude;
+                    }
+                    return true;
+                });
+
+                var tmp = new List<SimpleGPS>(gps.ToArray());
+                //pLat = double.Parse(txtLat.Text);
+                //pLng = double.Parse(txtLong.Text);
+                //Fill In Rest
+
+                for (var r = 0; r < width; r++)
+                {
+
+                    var origin = tmp.Where(g => g.Y == 0 && g.X == r).FirstOrDefault();
+                    pLat = origin.Latitude;
+                    pLng = origin.Longitude;
+                    //Console.WriteLine("Origin - R:{0} - ({1},{2}) - {3},{4}", r, origin.X, origin.Y, origin.Latitude, origin.Longitude);
+
+                    gps.Where(g => g.X == r && g.Y > 0).All(g =>
+                    {
+                       // Console.WriteLine("G1 - R:{0} - ({1},{2}) - {3},{4}", r, g.X, g.Y, g.Latitude, g.Longitude);
+                        var tmpGPS = getNext(pLat, pLng, g.X, g.Y, 0, 1);
+                        pLat = g.Latitude = tmpGPS.Latitude;
+                        g.Longitude = pLng;
+                        //Console.WriteLine("G2 - R:{0} - ({1},{2}) - {3},{4}", r, g.X, g.Y, g.Latitude, g.Longitude);
+                        return true;
+                    });
+                   
+                }
+
 
                 Console.WriteLine("GPS Skeleton Completed");
-
-
-                //ElevationRequest eReq = new ElevationRequest()
-                //{
-                //    Locations = SimpleGPSs.Take(10).Select(s => s.ToLocation()).ToList<Location>()
-                //};
-
-                //var result = GoogleMaps.Elevation.Query(eReq);
-
-                //if (result.Status == GoogleMapsApi.Entities.Elevation.Response.Status.OVER_QUERY_LIMIT)
-                //    Console.WriteLine("Elevation Request Query Limit Exceeded");
-                //else
-                //    Populate(result.Results);
 
                 return true;
             }catch(Exception ex)
@@ -189,21 +295,6 @@ namespace HoleMapper
 
         private SimpleGPS getNext(double Latitude, double Longitude, int col, int row, int brng, int distance)
         {
-            
-            
-            //double sinDR = Math.Sin(1 / R);
-            //double cosDR = Math.Cos(1 / R);
-
-            /*
-                var φ2 = Math.asin( Math.sin(φ1)*Math.cos(d/R) + Math.cos(φ1)*Math.sin(d/R)*Math.cos(brng) );
-                var λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(d/R)*Math.cos(φ1),Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
-            */
-
-
-            //double lat2 = Math.Asin(Math.Sin(origin.Latitude) * Math.Cos(distance / R) + Math.Cos(origin.Latitude) * Math.Sin(distance / R) * Math.Cos(brng));
-            //double lng2 = origin.Longitude + Math.Atan2(Math.Sin(brng) * Math.Sin(distance / R) * Math.Cos(origin.Latitude), Math.Cos(distance / R) - Math.Sin(origin.Latitude) * Math.Sin(lat2));
-
-           
             
             double distRatio = distance / R;
             var distRatioSine = Math.Sin(distRatio);
@@ -289,10 +380,10 @@ namespace HoleMapper
         {
             if (!chkStopUpdate.Checked)
             {
-                int TakeAmt = 80;
+                int TakeAmt = 50;
                 ElevationRequest eReq = new ElevationRequest()
                 {
-                    Locations = SimpleGPSs.Where(s => s.Elevation == -1).Take(TakeAmt).Select(s => s.ToLocation()).ToList<Location>()
+                    Locations = SimpleGPSs.Where(s => s.Elevation == -1).OrderBy(s => s.X).OrderBy(s => s.Y).Take(TakeAmt).Select(s => s.ToLocation()).ToList<Location>()
                 };
 
                 var result = GoogleMaps.Elevation.Query(eReq);
@@ -300,7 +391,7 @@ namespace HoleMapper
                 if (result.Status == GoogleMapsApi.Entities.Elevation.Response.Status.OVER_QUERY_LIMIT)
                 {
                     Console.WriteLine("Elevation Request Query Limit Exceeded");
-                    this.Close();
+                    SaveFile();
                 }
                 else
                 {
@@ -309,7 +400,7 @@ namespace HoleMapper
                     
                     if (SimpleGPSs.Where(s => s.Elevation == -1).Count() > 0)
                     {
-                        Console.WriteLine(SimpleGPSs.Where(s => s.Elevation == -1).Count() + " OF " + SimpleGPSs.Count() + " have been mapped.");
+                        //Console.WriteLine(SimpleGPSs.Where(s => s.Elevation == -1).Count() + " OF " + SimpleGPSs.Count() + " have been mapped.");
                         UpdateElevations();
                     }
                     else
@@ -355,9 +446,9 @@ namespace HoleMapper
         private double _ele;
 
 
-        public double Latitude { get { return _lat; } set { _lat = Math.Round(value, 6); } }
-        public double Longitude { get { return _lng; } set { _lng = Math.Round(value, 6); } }
-        public double Elevation { get { return _ele; } set { _ele = Math.Round(value, 3); } }
+        public double Latitude { get { return _lat; } set { _lat = value; } }// Math.Round(value, 15); } }
+        public double Longitude { get { return _lng; } set { _lng = value; } }// Math.Round(value, 15); } }
+        public double Elevation { get { return _ele; } set { _ele = value; } }// Math.Round(value, 3); } }
 
 
         public int X { get; set; } 
