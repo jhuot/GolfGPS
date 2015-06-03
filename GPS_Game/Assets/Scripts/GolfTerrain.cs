@@ -22,7 +22,7 @@ namespace GolfGPS.Scripts
 
         public void Start()
         {
-			_td.SetHeights(0, 118, GetHeightsFromFile());
+			_td.SetHeights(0, 0, GetHeightsFromFile());
         }
 
         public float[,] GetHeightsFromFile()
